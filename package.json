@@ -1,0 +1,22 @@
+{
+  "name": "jira",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "test",
+    "start": "node ./src/app.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "googleapis": "^146.0.0",
+    "handlebars": "^4.7.8",
+    "jira-client": "^8.2.2",
+    "dotenv": "^16.0.3"
+  },
+  "devDependencies": {
+    "prettier": "3.0.2"
+  }
+}
