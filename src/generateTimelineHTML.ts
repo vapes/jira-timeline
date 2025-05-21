@@ -58,15 +58,50 @@ export function generateIssueTimeline(issueResults: IssueResult[]): string {
  */
 function generateTableHeader(startDate: Date, numDays: number): string {
 	let currentDate = new Date(startDate);
-	let tableHeader = '<tr>\n<th>Summary</th>';
+
+	// Сначала сгруппируем дни по месяцам
+	const months: { [key: string]: number } = {};
+	const days: { date: Date; day: number }[] = [];
 
 	for (let i = 0; i < numDays; i++) {
-		tableHeader += `<th class="${getMonthCSSClass(currentDate)}">${currentDate.toISOString().split('T')[0]}</th>`;
+		const dateClone = new Date(currentDate);
+		const monthYear = dateClone.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+
+		if (!months[monthYear]) {
+			months[monthYear] = 0;
+		}
+		months[monthYear]++;
+
+		days.push({
+			date: dateClone,
+			day: dateClone.getDate()
+		});
+
 		currentDate.setDate(currentDate.getDate() + 1);
 	}
 
-	tableHeader += '</tr>\n';
-	return tableHeader;
+	// Теперь формируем заголовок
+	let monthHeader = '<tr>\n<th rowspan="2">Summary</th>';
+	let dayHeader = '<tr>\n';
+
+	// Добавляем месяцы с правильным colspan
+	Object.entries(months).forEach(([monthYear, count]) => {
+		monthHeader += `<th colspan="${count}" class="${getMonthCSSClass(
+			days.find((d) => d.date.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) === monthYear)!.date
+		)}">${monthYear}</th>`;
+	});
+
+	// Добавляем дни с фиксированной шириной
+	days.forEach(({ date, day }) => {
+		dayHeader += `<th class="${getMonthCSSClass(
+			date
+		)}" style="width: 60px; min-width: 60px; max-width: 60px;">${day}</th>`;
+	});
+
+	monthHeader += '</tr>\n';
+	dayHeader += '</tr>\n';
+
+	return monthHeader + dayHeader;
 }
 
 /**
@@ -87,7 +122,9 @@ function generateTimeRows(issueResults: IssueResult[], startDate: Date, numDays:
 			lastStatus = statusesForDay[statusesForDay.length - 1] || lastStatus;
 			const cellClass = getCellCSSClass(timelineDate, lastStatus);
 
-			issueRows += `<td class="${cellClass}">${getStatusesHTML(statusesForDay)}</td>`;
+			issueRows += `<td class="${cellClass}" style="width: 60px; min-width: 60px; max-width: 60px;">${getStatusesHTML(
+				statusesForDay
+			)}</td>`;
 			timelineDate.setDate(timelineDate.getDate() + 1);
 		}
 

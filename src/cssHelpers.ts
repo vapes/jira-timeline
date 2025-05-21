@@ -9,8 +9,6 @@ type StatusName =
 	| 'QA Blocked'
 	| 'Open'
 	| 'Created'
-	| 'Done'
-	| 'To Groom'
 	| 'Reopened';
 
 /**
@@ -39,7 +37,7 @@ export function getCellCSSClass(timelineDate: Date, lastStatus: string): string 
 	const dayOfWeek = timelineDate.getDay();
 	let cellClass = getCellClassByStatus(lastStatus);
 
-	if (dayOfWeek === 0 || dayOfWeek === 6 || dayOfWeek === 5) {
+	if (dayOfWeek === 0 || dayOfWeek === 6) {
 		cellClass = 'weekend';
 	}
 
@@ -59,13 +57,11 @@ export function getCellClassByStatus(status: string): string {
 		'QA Passed': 'blwh',
 		'QA Blocked': 'qablocked',
 		Open: 'open',
-		Created: 'open',
-		Done: 'open',
-		'To Groom': 'open',
+		Created: 'created',
 		Reopened: 'reopened'
 	};
 
-	return statusClasses[status as StatusName] || 'hide';
+	return statusClasses[status as StatusName] || 'default-status';
 }
 
 /**
