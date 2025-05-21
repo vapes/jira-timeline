@@ -1,16 +1,36 @@
-import { getCSSClassByTeam, getCellCSSClass, getCellClassByStatus, getMonthCSSClass } from './cssHelpers.js';
-import { style } from './style.js';
+import { getCSSClassByTeam, getCellCSSClass, getCellClassByStatus, getMonthCSSClass } from './cssHelpers.ts';
+import { style } from './style.ts';
+
+interface IssueResult {
+	issueKey: string;
+	issueSummary: string;
+	statusHistory: Array<{
+		date: string;
+		to: string;
+		author: {
+			displayName?: string;
+			name?: string;
+		};
+	}>;
+	team: string;
+	assignee: string;
+	estimate: string;
+	storyPoints: string;
+}
+
+interface DateRange {
+	startDate: Date;
+	endDate: Date;
+}
 
 /**
  * @description Generate HTML table with status timeline for all issues
- * @param {Array<Object>} issueResults - Array of processed issue data
- * @returns {string} Generated HTML content
  */
-export function generateIssueTimeline(issueResults) {
+export function generateIssueTimeline(issueResults: IssueResult[]): string {
 	issueResults = sortIssuesByInProgress(issueResults);
 
 	const { startDate, endDate } = findOverallDates(issueResults);
-	const numDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+	const numDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
 	return `
     <html>
@@ -35,11 +55,8 @@ export function generateIssueTimeline(issueResults) {
 
 /**
  * @description Generate table header with dates
- * @param {Date} startDate - Timeline start date
- * @param {number} numDays - Number of days to display
- * @returns {string} Generated HTML header
  */
-function generateTableHeader(startDate, numDays) {
+function generateTableHeader(startDate: Date, numDays: number): string {
 	let currentDate = new Date(startDate);
 	let tableHeader = '<tr>\n<th>Summary</th>';
 
@@ -54,12 +71,8 @@ function generateTableHeader(startDate, numDays) {
 
 /**
  * @description Generate timeline rows for each issue
- * @param {Array<Object>} issueResults - Array of processed issue data
- * @param {Date} startDate - Timeline start date
- * @param {number} numDays - Number of days to display
- * @returns {string} Generated HTML rows
  */
-function generateTimeRows(issueResults, startDate, numDays) {
+function generateTimeRows(issueResults: IssueResult[], startDate: Date, numDays: number): string {
 	let issueRows = '';
 
 	issueResults.forEach((issueResult) => {
@@ -86,11 +99,8 @@ function generateTimeRows(issueResults, startDate, numDays) {
 
 /**
  * @description Get statuses for a specific day
- * @param {Object} issueResult - Issue data
- * @param {Date} timelineDate - Date to check
- * @returns {Array<string>} Array of statuses for the day
  */
-function getStatusesForDay(issueResult, timelineDate) {
+function getStatusesForDay(issueResult: IssueResult, timelineDate: Date): string[] {
 	const statusesForDay = issueResult.statusHistory.filter((entry) => {
 		const entryDate = new Date(entry.date);
 		return (
@@ -104,19 +114,15 @@ function getStatusesForDay(issueResult, timelineDate) {
 
 /**
  * @description Generate HTML for status entries
- * @param {Array<string>} statusEntriesForDay - Array of statuses
- * @returns {string} Generated HTML for statuses
  */
-function getStatusesHTML(statusEntriesForDay) {
+function getStatusesHTML(statusEntriesForDay: string[]): string {
 	return statusEntriesForDay.map((entry) => `<p class="${getCellClassByStatus(entry)}">${entry}</p>`).join('');
 }
 
 /**
  * @description Generate first cell content for issue row
- * @param {Object} issueResult - Issue data
- * @returns {string} Generated HTML for first cell
  */
-function getFirstCell(issueResult) {
+function getFirstCell(issueResult: IssueResult): string {
 	return `<td class="fixed-column ${getCSSClassByTeam(issueResult.team)}">
     <a href="https://jira.bgaming.com/browse/${issueResult.issueKey}" target="_blank">${issueResult.issueKey} ${
 		issueResult.issueSummary
@@ -129,10 +135,8 @@ function getFirstCell(issueResult) {
 
 /**
  * @description Sort issues by their first "In Progress" status
- * @param {Array<Object>} issueResults - Array of issue data
- * @returns {Array<Object>} Sorted array of issues
  */
-function sortIssuesByInProgress(issueResults) {
+function sortIssuesByInProgress(issueResults: IssueResult[]): IssueResult[] {
 	// Log information about reopened tickets
 	issueResults.forEach((issue) => {
 		const reopenedEntries = issue.statusHistory.filter((entry) => entry.to === 'Reopened');
@@ -165,24 +169,22 @@ function sortIssuesByInProgress(issueResults) {
 		} else {
 			const aInProgressDate = new Date(aInProgressEntry.date);
 			const bInProgressDate = new Date(bInProgressEntry.date);
-			return aInProgressDate - bInProgressDate;
+			return aInProgressDate.getTime() - bInProgressDate.getTime();
 		}
 	});
 }
 
 /**
  * @description Find overall start and end dates for timeline
- * @param {Array<Object>} issueResults - Array of issue data
- * @returns {Object} Object containing start and end dates
  */
-function findOverallDates(issueResults) {
+function findOverallDates(issueResults: IssueResult[]): DateRange {
 	let startDate = new Date();
 	let endDate = new Date();
 
 	issueResults.forEach((issueResult) => {
 		const dates = issueResult.statusHistory.map((entry) => new Date(entry.date));
-		const issueStartDate = new Date(Math.min(...dates));
-		const issueEndDate = new Date(Math.max(...dates));
+		const issueStartDate = new Date(Math.min(...dates.map((d) => d.getTime())));
+		const issueEndDate = new Date(Math.max(...dates.map((d) => d.getTime())));
 
 		if (issueStartDate < startDate) {
 			startDate = issueStartDate;

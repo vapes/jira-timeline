@@ -1,10 +1,23 @@
+type TeamName = 'Animator' | 'QA' | 'Content' | 'BE' | 'TAM' | 'Sound' | 'Art' | 'FE' | 'Math';
+type StatusName =
+	| 'In Progress'
+	| 'Blocked'
+	| 'In Testing'
+	| 'Code Review'
+	| 'Ready for QA'
+	| 'QA Passed'
+	| 'QA Blocked'
+	| 'Open'
+	| 'Created'
+	| 'Done'
+	| 'To Groom'
+	| 'Reopened';
+
 /**
  * @description Get CSS class based on team name
- * @param {string} team - Team name
- * @returns {string} CSS class name
  */
-export function getCSSClassByTeam(team) {
-	const teamClasses = {
+export function getCSSClassByTeam(team: string): string {
+	const teamClasses: Record<TeamName, string> = {
 		Animator: 'animator',
 		QA: 'qa',
 		Content: 'content',
@@ -16,16 +29,13 @@ export function getCSSClassByTeam(team) {
 		Math: 'math'
 	};
 
-	return teamClasses[team] || 'hide';
+	return teamClasses[team as TeamName] || 'hide';
 }
 
 /**
  * @description Get CSS class for timeline cell based on date and status
- * @param {Date} timelineDate - Date of the cell
- * @param {string} lastStatus - Last status of the issue
- * @returns {string} CSS class name
  */
-export function getCellCSSClass(timelineDate, lastStatus) {
+export function getCellCSSClass(timelineDate: Date, lastStatus: string): string {
 	const dayOfWeek = timelineDate.getDay();
 	let cellClass = getCellClassByStatus(lastStatus);
 
@@ -38,11 +48,9 @@ export function getCellCSSClass(timelineDate, lastStatus) {
 
 /**
  * @description Get CSS class based on issue status
- * @param {string} status - Issue status
- * @returns {string} CSS class name
  */
-export function getCellClassByStatus(status) {
-	const statusClasses = {
+export function getCellClassByStatus(status: string): string {
+	const statusClasses: Record<StatusName, string> = {
 		'In Progress': 'in-progress',
 		Blocked: 'blocked',
 		'In Testing': 'testing',
@@ -57,15 +65,13 @@ export function getCellClassByStatus(status) {
 		Reopened: 'reopened'
 	};
 
-	return statusClasses[status] || 'hide';
+	return statusClasses[status as StatusName] || 'hide';
 }
 
 /**
  * @description Get CSS class for month background
- * @param {Date} date - Date object
- * @returns {string} CSS class name
  */
-export function getMonthCSSClass(date) {
+export function getMonthCSSClass(date: Date): string {
 	const month = date.getMonth();
 	const months = [
 		'january',
