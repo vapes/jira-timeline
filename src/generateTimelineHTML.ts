@@ -1,27 +1,10 @@
-import { getCSSClassByTeam, getCellCSSClass, getCellClassByStatus, getMonthCSSClass } from './cssHelpers.ts';
-import { style } from './style.ts';
-
-interface IssueResult {
-	issueKey: string;
-	issueSummary: string;
-	statusHistory: Array<{
-		date: string;
-		to: string;
-		author: {
-			displayName?: string;
-			name?: string;
-		};
-	}>;
-	team: string;
-	assignee: string;
-	estimate: string;
-	storyPoints: string;
-}
-
-interface DateRange {
-	startDate: Date;
-	endDate: Date;
-}
+import { IssueResult } from './types';
+import { style } from './style';
+import { clientScripts } from './clientScripts';
+import { findOverallDates, sortIssuesByInProgress } from './utils';
+import { generateTableHeader, generateTimeRows } from './timeline';
+import { collectUserStatistics, generateUserStatisticsTable } from './userStatistics';
+import { generateReopenedTicketsSection } from './reopenedTickets';
 
 /**
  * @description Generate HTML table with status timeline for all issues
@@ -32,204 +15,62 @@ export function generateIssueTimeline(issueResults: IssueResult[]): string {
 	const { startDate, endDate } = findOverallDates(issueResults);
 	const numDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
+	// Собираем статистику пользователей
+	const userStats = collectUserStatistics(issueResults);
+
 	return `
     <html>
     <head>
       <title>Status Timeline</title>
       ${style}
+      ${clientScripts}
     </head>
     <body>
-      <div class="scrollable-content">
-        <table>
-            <thead>
-                ${generateTableHeader(startDate, numDays)}
-            </thead>
-            <tbody>
-                ${generateTimeRows(issueResults, startDate, numDays)}
-            </tbody>    
-        </table>
+      <div class="tab-buttons">
+        <button class="tab-button active" data-tab="timeline-tab" onclick="showTab('timeline-tab')">Временная шкала</button>
+        <button class="tab-button" data-tab="statistics-tab" onclick="showTab('statistics-tab')">Статистика пользователей</button>
+      </div>
+      
+      <div id="timeline-tab" class="tab-content">
+        <div class="scrollable-content">
+          <table>
+              <thead>
+                  ${generateTableHeader(startDate, numDays)}
+              </thead>
+              <tbody>
+                  ${generateTimeRows(issueResults, startDate, numDays)}
+              </tbody>    
+          </table>
+        </div>
+      </div>
+      
+      <div id="statistics-tab" class="tab-content" style="display: none;">
+        <div class="statistics-layout">
+          <div class="statistics-column">
+            <table class="statistics-table">
+                <thead>
+                    <tr>
+                        <th>Пользователь</th>
+                        <th>Переводы в In Progress</th>
+                        <th>Reopened после In Progress</th>
+                        <th>% Reopened/In Progress</th>
+                        <th>Переводы в In Testing</th>
+                        <th>% Reopened/In Testing</th>
+                        <th>Переводы в Reopened</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${generateUserStatisticsTable(userStats)}
+                </tbody>
+            </table>
+          </div>
+          
+          <div class="reopened-tickets-column">
+            <h2>Переоткрытые тикеты</h2>
+            ${generateReopenedTicketsSection(userStats)}
+          </div>
+        </div>
       </div>
     </body>
   </html>`;
-}
-
-/**
- * @description Generate table header with dates
- */
-function generateTableHeader(startDate: Date, numDays: number): string {
-	let currentDate = new Date(startDate);
-
-	// Сначала сгруппируем дни по месяцам
-	const months: { [key: string]: number } = {};
-	const days: { date: Date; day: number }[] = [];
-
-	for (let i = 0; i < numDays; i++) {
-		const dateClone = new Date(currentDate);
-		const monthYear = dateClone.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
-
-		if (!months[monthYear]) {
-			months[monthYear] = 0;
-		}
-		months[monthYear]++;
-
-		days.push({
-			date: dateClone,
-			day: dateClone.getDate()
-		});
-
-		currentDate.setDate(currentDate.getDate() + 1);
-	}
-
-	// Теперь формируем заголовок
-	let monthHeader = '<tr>\n<th rowspan="2">Summary</th>';
-	let dayHeader = '<tr>\n';
-
-	// Добавляем месяцы с правильным colspan
-	Object.entries(months).forEach(([monthYear, count]) => {
-		monthHeader += `<th colspan="${count}" class="${getMonthCSSClass(
-			days.find((d) => d.date.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }) === monthYear)!.date
-		)}">${monthYear}</th>`;
-	});
-
-	// Добавляем дни с фиксированной шириной
-	days.forEach(({ date, day }) => {
-		dayHeader += `<th class="${getMonthCSSClass(
-			date
-		)}" style="width: 60px; min-width: 60px; max-width: 60px;">${day}</th>`;
-	});
-
-	monthHeader += '</tr>\n';
-	dayHeader += '</tr>\n';
-
-	return monthHeader + dayHeader;
-}
-
-/**
- * @description Generate timeline rows for each issue
- */
-function generateTimeRows(issueResults: IssueResult[], startDate: Date, numDays: number): string {
-	let issueRows = '';
-
-	issueResults.forEach((issueResult) => {
-		issueRows += '<tr>\n';
-		issueRows += getFirstCell(issueResult);
-
-		const timelineDate = new Date(startDate);
-		let lastStatus = '';
-
-		for (let i = 0; i < numDays; i++) {
-			const statusesForDay = getStatusesForDay(issueResult, timelineDate);
-			lastStatus = statusesForDay[statusesForDay.length - 1] || lastStatus;
-			const cellClass = getCellCSSClass(timelineDate, lastStatus);
-
-			issueRows += `<td class="${cellClass}" style="width: 60px; min-width: 60px; max-width: 60px;">${getStatusesHTML(
-				statusesForDay
-			)}</td>`;
-			timelineDate.setDate(timelineDate.getDate() + 1);
-		}
-
-		issueRows += '</tr>\n';
-	});
-
-	return issueRows;
-}
-
-/**
- * @description Get statuses for a specific day
- */
-function getStatusesForDay(issueResult: IssueResult, timelineDate: Date): string[] {
-	const statusesForDay = issueResult.statusHistory.filter((entry) => {
-		const entryDate = new Date(entry.date);
-		return (
-			entryDate.getFullYear() === timelineDate.getFullYear() &&
-			entryDate.getMonth() === timelineDate.getMonth() &&
-			entryDate.getDate() === timelineDate.getDate()
-		);
-	});
-	return statusesForDay.map((statusEntry) => statusEntry.to);
-}
-
-/**
- * @description Generate HTML for status entries
- */
-function getStatusesHTML(statusEntriesForDay: string[]): string {
-	return statusEntriesForDay.map((entry) => `<p class="${getCellClassByStatus(entry)}">${entry}</p>`).join('');
-}
-
-/**
- * @description Generate first cell content for issue row
- */
-function getFirstCell(issueResult: IssueResult): string {
-	return `<td class="fixed-column ${getCSSClassByTeam(issueResult.team)}">
-    <a href="https://jira.bgaming.com/browse/${issueResult.issueKey}" target="_blank">${issueResult.issueKey} ${
-		issueResult.issueSummary
-	}</a>
-    <p>${issueResult.assignee}</p>
-    <p>${issueResult.estimate}</p>
-    <p>${issueResult.storyPoints}</p>
-    </td>`;
-}
-
-/**
- * @description Sort issues by their first "In Progress" status
- */
-function sortIssuesByInProgress(issueResults: IssueResult[]): IssueResult[] {
-	// Log information about reopened tickets
-	issueResults.forEach((issue) => {
-		const reopenedEntries = issue.statusHistory.filter((entry) => entry.to === 'Reopened');
-		reopenedEntries.forEach((entry) => {
-			const formattedDate = new Date(entry.date).toLocaleString('ru-RU', {
-				year: 'numeric',
-				month: '2-digit',
-				day: '2-digit',
-				hour: '2-digit',
-				minute: '2-digit'
-			});
-			console.log(
-				`Ticket ${issue.issueKey} was reopened by ${
-					entry.author.displayName || entry.author.name || 'Unknown user'
-				} (${formattedDate})`
-			);
-		});
-	});
-
-	return issueResults.sort((a, b) => {
-		const aInProgressEntry = a.statusHistory.find((entry) => entry.to === 'In Progress');
-		const bInProgressEntry = b.statusHistory.find((entry) => entry.to === 'In Progress');
-
-		if (!aInProgressEntry && !bInProgressEntry) {
-			return 0;
-		} else if (!aInProgressEntry) {
-			return 1;
-		} else if (!bInProgressEntry) {
-			return -1;
-		} else {
-			const aInProgressDate = new Date(aInProgressEntry.date);
-			const bInProgressDate = new Date(bInProgressEntry.date);
-			return aInProgressDate.getTime() - bInProgressDate.getTime();
-		}
-	});
-}
-
-/**
- * @description Find overall start and end dates for timeline
- */
-function findOverallDates(issueResults: IssueResult[]): DateRange {
-	let startDate = new Date();
-	let endDate = new Date();
-
-	issueResults.forEach((issueResult) => {
-		const dates = issueResult.statusHistory.map((entry) => new Date(entry.date));
-		const issueStartDate = new Date(Math.min(...dates.map((d) => d.getTime())));
-		const issueEndDate = new Date(Math.max(...dates.map((d) => d.getTime())));
-
-		if (issueStartDate < startDate) {
-			startDate = issueStartDate;
-		}
-		if (issueEndDate > endDate) {
-			endDate = issueEndDate;
-		}
-	});
-
-	return { startDate, endDate };
 }

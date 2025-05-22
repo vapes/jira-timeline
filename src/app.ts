@@ -1,37 +1,13 @@
-import jira from './jiraClient.ts';
+import jira from './jiraClient';
 import fs from 'fs';
-import { getIssueStatusHistory } from './issueStatusHistory.ts';
-import { generateIssueTimeline } from './generateTimelineHTML.ts';
-
-interface JiraIssue {
-	key: string;
-	fields: {
-		customfield_10106?: number;
-		timeoriginalestimate?: number;
-		summary: string;
-		customfield_10801?: {
-			value: string;
-		};
-		assignee?: {
-			displayName: string;
-		};
-	};
-}
-
-interface ProcessedIssue {
-	issueKey: string;
-	issueSummary: string;
-	statusHistory: any; // TODO: Add proper type for status history
-	team: string;
-	assignee: string;
-	estimate: string;
-	storyPoints: string;
-}
+import { getIssueStatusHistory } from './issueStatusHistory';
+import { generateIssueTimeline } from './generateTimelineHTML';
+import { IssueResult, JiraIssue } from './types';
 
 /**
  * @description JQL query to retrieve issues
  */
-const jqlQuery: string = 'project = CA AND Teams = FE AND createdDate >= startOfYear() ';
+const jqlQuery: string = 'project = CA AND createdDate >= startOfYear() ';
 
 /**
  * @description Process issues from Jira
@@ -55,7 +31,7 @@ async function processIssues(): Promise<void> {
 /**
  * @description Process single Jira issue
  */
-async function processIssue(issue: JiraIssue): Promise<ProcessedIssue> {
+async function processIssue(issue: JiraIssue): Promise<IssueResult> {
 	const issueKey = issue.key;
 	const storyPoints = issue.fields.customfield_10106 ? `StoryPoints: ${issue.fields.customfield_10106}` : '';
 	const estimate = formatTimeEstimate(issue.fields.timeoriginalestimate || 0);

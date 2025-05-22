@@ -1,4 +1,4 @@
-import jira from './jiraClient.ts';
+import jira from './jiraClient';
 
 interface StatusChange {
 	from: string;
